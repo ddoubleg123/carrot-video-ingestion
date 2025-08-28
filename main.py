@@ -108,6 +108,31 @@ def get_yt_dlp_options_fallback():
 async def extract_with_fallback(url: str) -> Dict[str, Any]:
     """Try multiple extraction methods with fallbacks"""
     
+    # Temporary mock for YouTube URLs to test pipeline
+    if "youtube.com" in url or "youtu.be" in url:
+        logger.info(f"Using mock extraction for YouTube URL: {url}")
+        return {
+            'title': 'Mock YouTube Video',
+            'duration': 180,
+            'uploader': 'Mock Channel',
+            'view_count': 1000000,
+            'upload_date': '20240101',
+            'description': 'Mock video description for testing YouTube pipeline',
+            'thumbnail': 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+            'webpage_url': url,
+            'formats': [
+                {
+                    'format_id': 'mock_audio',
+                    'url': 'https://example.com/mock-audio.m4a',
+                    'ext': 'm4a',
+                    'acodec': 'aac',
+                    'vcodec': 'none',
+                    'abr': 128,
+                    'filesize': 5000000,
+                }
+            ]
+        }
+    
     # Method 1: Primary extraction with anti-detection
     try:
         logger.info(f"Attempting primary extraction for {url}")
