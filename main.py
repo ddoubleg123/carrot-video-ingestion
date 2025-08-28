@@ -67,22 +67,41 @@ class JobStatusResponse(BaseModel):
     error: Optional[str] = None
     result: Optional[Dict[str, Any]] = None
 
-# yt-dlp configuration
-YDL_OPTS = {
-    "quiet": True,
-    "no_warnings": True,
-    "socket_timeout": 15,
-    "retries": 3,
-    "fragment_retries": 2,
-    "skip_download": True,
-    "writesubtitles": True,
-    "writeautomaticsub": True,
-    "subtitleslangs": ["en"],
-    "format": "bestaudio/best",
-    "extractaudio": True,
-    "audioformat": "mp3",
-    "outtmpl": "/tmp/%(id)s.%(ext)s",
-}
+def get_yt_dlp_options():
+    """Get yt-dlp options with anti-detection measures"""
+    return {
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'outtmpl': '/tmp/%(title)s.%(ext)s',
+        'extractaudio': True,
+        'audioformat': 'mp3',
+        'audioquality': '192K',
+        'no_warnings': True,
+        'ignoreerrors': False,
+        'extract_flat': False,
+        # Anti-detection measures
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'referer': 'https://www.youtube.com/',
+        'headers': {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        },
+        # Rate limiting
+        'sleep_interval': 1,
+        'max_sleep_interval': 5,
+        'sleep_interval_requests': 1,
+        'sleep_interval_subtitles': 1,
+        # Retry options
+        'retries': 3,
+        'fragment_retries': 3,
+        'extractor_retries': 3,
+        # Additional options
+        'no_check_certificate': True,
+        'prefer_insecure': False,
+    }
 
 def get_job_key(job_id: str) -> str:
     return f"job:{job_id}"
@@ -143,7 +162,8 @@ async def process_video_url(job_id: str, url: str) -> None:
         save_job(job)
         
         # Extract video info
-        with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+        ydl_opts = get_yt_dlp_options()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
         job.progress = 70
@@ -211,7 +231,8 @@ async def health_check():
         
         # Test yt-dlp with a known stable video
         test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True}) as ydl:
+        ydl_opts = get_yt_dlp_options()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.extract_info(test_url, download=False)
         
         return {"status": "healthy", "timestamp": datetime.now().isoformat()}
