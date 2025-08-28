@@ -8,7 +8,7 @@ from typing import Dict, Optional, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 import yt_dlp
@@ -272,6 +272,49 @@ async def update_ytdlp():
         return {"message": "yt-dlp update triggered", "timestamp": datetime.now().isoformat()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+
+@app.post("/download-audio")
+async def download_audio(request: dict):
+    """
+    Download audio from YouTube URL with proper authentication.
+    Used by transcription service to access YouTube audio streams.
+    """
+    try:
+        url = request.get("url")
+        if not url:
+            raise HTTPException(status_code=400, detail="URL is required")
+        
+        # Use requests to download with proper headers
+        import requests
+        
+        # YouTube audio URLs require specific headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'audio/*,*/*;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'identity',
+            'Range': 'bytes=0-',
+        }
+        
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()
+        
+        # Return the audio data as bytes
+        audio_data = response.content
+        
+        return Response(
+            content=audio_data,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Length": str(len(audio_data)),
+                "Content-Type": "audio/mpeg"
+            }
+        )
+        
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Failed to download audio: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
